@@ -9,6 +9,7 @@ const errorHandler = require('./middleware/error-handler');
 
 // Routes
 const authRoutes = require('./modules/auth/routes/auth-routes');
+const storeRoutes = require('./modules/stores/routes/store-routes');
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/stores', storeRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
