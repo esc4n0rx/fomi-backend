@@ -1,10 +1,12 @@
-// Serviço de lojas
 const StoreRepository = require('../repositories/store-repository');
+const SubscriptionRepository = require('../../billing/repositories/subscription-repository');
 const { generateSlug, generateUniqueSlug } = require('../../../utils/slug-generator');
+const { hasReachedLimit } = require('../../../utils/plan-limits');
 
 class StoreService {
     constructor() {
         this.storeRepository = new StoreRepository();
+        this.subscriptionRepository = new SubscriptionRepository();
     }
 
     /**
@@ -14,10 +16,14 @@ class StoreService {
      * @returns {Promise<Object>} Loja criada
      */
     async createStore(userId, storeData) {
-        // Verifica limite de lojas para plano gratuito
-        const storeCount = await this.storeRepository.countByUserAndPlan(userId, 'gratuito');
-        if (storeCount >= 1) {
-            throw new Error('Limite de lojas atingido para o plano gratuito');
+        // Busca assinatura ativa do usuário
+        const subscription = await this.subscriptionRepository.findActiveByUserId(userId);
+        const userPlan = subscription?.plano || 'fomi_simples';
+
+        // Verifica limite de lojas para o plano
+        const storeCount = await this.storeRepository.countByUserId(userId);
+        if (hasReachedLimit(userPlan, 'stores', storeCount)) {
+            throw new Error(`Limite de lojas atingido para o plano ${userPlan}`);
         }
 
         // Gera slug único
@@ -36,9 +42,10 @@ class StoreService {
         // Cria loja
         const store = await this.storeRepository.create({
             user_id: userId,
+            subscription_id: subscription?.id || null,
             slug: uniqueSlug,
             endereco_cep: formattedCep,
-            plano: 'gratuito',
+            plano: userPlan,
             ...storeData
         });
 

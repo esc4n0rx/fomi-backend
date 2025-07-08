@@ -1,4 +1,4 @@
-// Middleware para verificar acesso à loja
+// Middleware para verificar acesso à loja (ATUALIZADO)
 const { supabase } = require('../config/database');
 
 /**
@@ -22,7 +22,7 @@ const storeAccessMiddleware = (storeIdParam = 'storeId') => {
             // Busca a loja e verifica propriedade
             const { data: store, error } = await supabase
                 .from('fomi_stores')
-                .select('id, user_id, ativo, plano')
+                .select('id, user_id, ativo, plano, subscription_id')
                 .eq('id', storeId)
                 .eq('user_id', userId)
                 .eq('ativo', true)

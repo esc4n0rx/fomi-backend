@@ -1,9 +1,12 @@
-// Serviço de promoções
+// Serviço de promoções (ATUALIZADO com validação de planos)
 const PromotionRepository = require('../repositories/promotion-repository');
+const SubscriptionRepository = require('../../billing/repositories/subscription-repository');
+const { hasReachedLimit } = require('../../../utils/plan-limits');
 
 class PromotionService {
     constructor() {
         this.promotionRepository = new PromotionRepository();
+        this.subscriptionRepository = new SubscriptionRepository();
     }
 
     /**
@@ -39,17 +42,21 @@ class PromotionService {
     /**
      * Cria nova promoção
      * @param {string} storeId - ID da loja
-     * @param {string} plano - Plano da loja
+     * @param {string} userId - ID do usuário (para buscar plano)
      * @param {Object} promotionData - Dados da promoção
      * @returns {Promise<Object>} Promoção criada
      */
-    async createPromotion(storeId, plano, promotionData) {
-        // Verifica limite para plano gratuito
-        if (plano === 'gratuito') {
-            const activePromotions = await this.promotionRepository.countActiveByStoreId(storeId);
-            if (activePromotions >= 3) {
-                throw new Error('Limite de promoções ativas atingido para o plano gratuito (máximo 3)');
-            }
+    async createPromotion(storeId, userId, promotionData) {
+        // Busca assinatura ativa do usuário para verificar plano
+        const subscription = await this.subscriptionRepository.findActiveByUserId(userId);
+        const userPlan = subscription?.plano || 'fomi_simples';
+
+        // Verifica limite de promoções ativas para o plano
+        const activePromotions = await this.promotionRepository.countActiveByStoreId(storeId);
+        if (hasReachedLimit(userPlan, 'promotions_active', activePromotions)) {
+            const limits = require('../../../utils/plan-limits').getPlanLimits(userPlan);
+            const maxPromotions = limits.promotions_active;
+            throw new Error(`Limite de promoções ativas atingido para o plano ${userPlan} (máximo ${maxPromotions})`);
         }
 
         // Verifica se produto grátis pertence à loja (se informado)

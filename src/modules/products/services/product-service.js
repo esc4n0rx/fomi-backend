@@ -1,9 +1,12 @@
-// Serviço de produtos
+// Serviço de produtos (ATUALIZADO com validação de planos)
 const ProductRepository = require('../repositories/product-repository');
+const SubscriptionRepository = require('../../billing/repositories/subscription-repository');
+const { hasReachedLimit } = require('../../../utils/plan-limits');
 
 class ProductService {
     constructor() {
         this.productRepository = new ProductRepository();
+        this.subscriptionRepository = new SubscriptionRepository();
     }
 
     /**
@@ -39,17 +42,20 @@ class ProductService {
     /**
      * Cria novo produto
      * @param {string} storeId - ID da loja
-     * @param {string} plano - Plano da loja
+     * @param {string} userId - ID do usuário (para buscar plano)
      * @param {Object} productData - Dados do produto
      * @returns {Promise<Object>} Produto criado
      */
-    async createProduct(storeId, plano, productData) {
-        // Verifica limite para plano gratuito
-        if (plano === 'gratuito') {
-            const productCount = await this.productRepository.countByStoreId(storeId);
-            if (productCount >= 50) {
-                throw new Error('Limite de produtos atingido para o plano gratuito (máximo 50)');
-            }
+    async createProduct(storeId, userId, productData) {
+        // Busca assinatura ativa do usuário para verificar plano
+        const subscription = await this.subscriptionRepository.findActiveByUserId(userId);
+        const userPlan = subscription?.plano || 'fomi_simples';
+
+        // Verifica limite de produtos para o plano
+        const productCount = await this.productRepository.countByStoreId(storeId);
+        if (hasReachedLimit(userPlan, 'products_per_store', productCount)) {
+            const limits = require('../../../utils/plan-limits').getPlanLimits(userPlan);
+            throw new Error(`Limite de produtos atingido para o plano ${userPlan} (máximo ${limits.products_per_store})`);
         }
 
         // Verifica se categoria pertence à loja (se informada)

@@ -1,4 +1,4 @@
-// Controller de categorias
+// Controller de categorias (ATUALIZADO)
 const CategoryService = require('../services/category-service');
 
 class CategoryController {
@@ -48,7 +48,7 @@ class CategoryController {
         try {
             const category = await this.categoryService.createCategory(
                 req.store.id,
-                req.store.plano,
+                req.user.id, // Adicionado userId para verificar plano
                 req.body
             );
             

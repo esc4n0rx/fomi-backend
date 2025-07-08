@@ -1,4 +1,4 @@
-// Arquivo principal da aplicação
+// Arquivo principal da aplicação (ATUALIZADO)
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -14,6 +14,10 @@ const categoryRoutes = require('./modules/categories/routes/category-routes');
 const productRoutes = require('./modules/products/routes/product-routes');
 const promotionRoutes = require('./modules/promotions/routes/promotion-routes');
 const couponRoutes = require('./modules/coupons/routes/coupon-routes');
+const billingRoutes = require('./modules/billing/routes/billing-routes');
+
+// Webhooks
+const stripeWebhook = require('./webhooks/stripe-webhook');
 
 const app = express();
 
@@ -32,6 +36,9 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Webhook do Stripe (antes do body parser JSON)
+app.use('/webhooks', stripeWebhook);
+
 // Body parser
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -43,6 +50,7 @@ app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/promotions', promotionRoutes);
 app.use('/api/v1/coupons', couponRoutes);
+app.use('/api/v1/billing', billingRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

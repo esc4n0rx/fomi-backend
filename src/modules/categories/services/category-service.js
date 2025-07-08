@@ -1,9 +1,12 @@
-// Serviço de categorias
+// Serviço de categorias (ATUALIZADO com validação de planos)
 const CategoryRepository = require('../repositories/category-repository');
+const SubscriptionRepository = require('../../billing/repositories/subscription-repository');
+const { hasReachedLimit } = require('../../../utils/plan-limits');
 
 class CategoryService {
     constructor() {
         this.categoryRepository = new CategoryRepository();
+        this.subscriptionRepository = new SubscriptionRepository();
     }
 
     /**
@@ -38,17 +41,20 @@ class CategoryService {
     /**
      * Cria nova categoria
      * @param {string} storeId - ID da loja
-     * @param {string} plano - Plano da loja
+     * @param {string} userId - ID do usuário (para buscar plano)
      * @param {Object} categoryData - Dados da categoria
      * @returns {Promise<Object>} Categoria criada
      */
-    async createCategory(storeId, plano, categoryData) {
-        // Verifica limite para plano gratuito
-        if (plano === 'gratuito') {
-            const categoryCount = await this.categoryRepository.countByStoreId(storeId);
-            if (categoryCount >= 10) {
-                throw new Error('Limite de categorias atingido para o plano gratuito (máximo 10)');
-            }
+    async createCategory(storeId, userId, categoryData) {
+        // Busca assinatura ativa do usuário para verificar plano
+        const subscription = await this.subscriptionRepository.findActiveByUserId(userId);
+        const userPlan = subscription?.plano || 'fomi_simples';
+
+        // Verifica limite de categorias para o plano
+        const categoryCount = await this.categoryRepository.countByStoreId(storeId);
+        if (hasReachedLimit(userPlan, 'categories_per_store', categoryCount)) {
+            const limits = require('../../../utils/plan-limits').getPlanLimits(userPlan);
+            throw new Error(`Limite de categorias atingido para o plano ${userPlan} (máximo ${limits.categories_per_store})`);
         }
 
         const category = await this.categoryRepository.create({

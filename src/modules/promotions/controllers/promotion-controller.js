@@ -1,4 +1,4 @@
-// Controller de promoções
+// Controller de promoções (ATUALIZADO)
 const PromotionService = require('../services/promotion-service');
 
 class PromotionController {
@@ -52,7 +52,7 @@ class PromotionController {
         try {
             const promotion = await this.promotionService.createPromotion(
                 req.store.id,
-                req.store.plano,
+                req.user.id, // Adicionado userId para verificar plano
                 req.body
             );
             

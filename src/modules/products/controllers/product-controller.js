@@ -1,4 +1,4 @@
-// Controller de produtos
+// Controller de produtos (ATUALIZADO)
 const ProductService = require('../services/product-service');
 
 class ProductController {
@@ -56,7 +56,7 @@ class ProductController {
         try {
             const product = await this.productService.createProduct(
                 req.store.id,
-                req.store.plano,
+                req.user.id, // Adicionado userId para verificar plano
                 req.body
             );
             
