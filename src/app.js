@@ -10,6 +10,10 @@ const errorHandler = require('./middleware/error-handler');
 // Routes
 const authRoutes = require('./modules/auth/routes/auth-routes');
 const storeRoutes = require('./modules/stores/routes/store-routes');
+const categoryRoutes = require('./modules/categories/routes/category-routes');
+const productRoutes = require('./modules/products/routes/product-routes');
+const promotionRoutes = require('./modules/promotions/routes/promotion-routes');
+const couponRoutes = require('./modules/coupons/routes/coupon-routes');
 
 const app = express();
 
@@ -35,6 +39,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/stores', storeRoutes);
+app.use('/api/v1/categories', categoryRoutes);
+app.use('/api/v1/products', productRoutes);
+app.use('/api/v1/promotions', promotionRoutes);
+app.use('/api/v1/coupons', couponRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
