@@ -9,16 +9,15 @@ const { createCouponSchema, updateCouponSchema } = require('../../../schemas/cou
 const router = express.Router();
 const couponController = new CouponController();
 
-// Todas as rotas precisam de autenticação e acesso à loja
+// Middleware de autenticação aplicado globalmente
 router.use(authMiddleware);
-router.use('/:storeId/*', storeAccessMiddleware('storeId'));
 
 // Rotas de cupons
-router.get('/:storeId', couponController.getStoreCoupons);
-router.post('/:storeId', validateRequest(createCouponSchema), couponController.createCoupon);
-router.post('/:storeId/validate', couponController.validateCoupon);
-router.get('/:storeId/:id', couponController.getCouponById);
-router.put('/:storeId/:id', validateRequest(updateCouponSchema), couponController.updateCoupon);
-router.delete('/:storeId/:id', couponController.deactivateCoupon);
+router.get('/:storeId', storeAccessMiddleware('storeId'), couponController.getStoreCoupons);
+router.post('/:storeId', storeAccessMiddleware('storeId'), validateRequest(createCouponSchema), couponController.createCoupon);
+router.post('/:storeId/validate', storeAccessMiddleware('storeId'), couponController.validateCoupon);
+router.get('/:storeId/:id', storeAccessMiddleware('storeId'), couponController.getCouponById);
+router.put('/:storeId/:id', storeAccessMiddleware('storeId'), validateRequest(updateCouponSchema), couponController.updateCoupon);
+router.delete('/:storeId/:id', storeAccessMiddleware('storeId'), couponController.deactivateCoupon);
 
 module.exports = router;

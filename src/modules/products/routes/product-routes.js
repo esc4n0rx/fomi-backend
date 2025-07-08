@@ -9,15 +9,14 @@ const { createProductSchema, updateProductSchema } = require('../../../schemas/p
 const router = express.Router();
 const productController = new ProductController();
 
-// Todas as rotas precisam de autenticação e acesso à loja
+// Middleware de autenticação aplicado globalmente
 router.use(authMiddleware);
-router.use('/:storeId/*', storeAccessMiddleware('storeId'));
 
 // Rotas de produtos
-router.get('/:storeId', productController.getStoreProducts);
-router.post('/:storeId', validateRequest(createProductSchema), productController.createProduct);
-router.get('/:storeId/:id', productController.getProductById);
-router.put('/:storeId/:id', validateRequest(updateProductSchema), productController.updateProduct);
-router.delete('/:storeId/:id', productController.deactivateProduct);
+router.get('/:storeId', storeAccessMiddleware('storeId'), productController.getStoreProducts);
+router.post('/:storeId', storeAccessMiddleware('storeId'), validateRequest(createProductSchema), productController.createProduct);
+router.get('/:storeId/:id', storeAccessMiddleware('storeId'), productController.getProductById);
+router.put('/:storeId/:id', storeAccessMiddleware('storeId'), validateRequest(updateProductSchema), productController.updateProduct);
+router.delete('/:storeId/:id', storeAccessMiddleware('storeId'), productController.deactivateProduct);
 
 module.exports = router;

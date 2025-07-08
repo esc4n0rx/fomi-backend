@@ -9,15 +9,14 @@ const { createPromotionSchema, updatePromotionSchema } = require('../../../schem
 const router = express.Router();
 const promotionController = new PromotionController();
 
-// Todas as rotas precisam de autenticação e acesso à loja
+// Middleware de autenticação aplicado globalmente
 router.use(authMiddleware);
-router.use('/:storeId/*', storeAccessMiddleware('storeId'));
 
 // Rotas de promoções
-router.get('/:storeId', promotionController.getStorePromotions);
-router.post('/:storeId', validateRequest(createPromotionSchema), promotionController.createPromotion);
-router.get('/:storeId/:id', promotionController.getPromotionById);
-router.put('/:storeId/:id', validateRequest(updatePromotionSchema), promotionController.updatePromotion);
-router.delete('/:storeId/:id', promotionController.deactivatePromotion);
+router.get('/:storeId', storeAccessMiddleware('storeId'), promotionController.getStorePromotions);
+router.post('/:storeId', storeAccessMiddleware('storeId'), validateRequest(createPromotionSchema), promotionController.createPromotion);
+router.get('/:storeId/:id', storeAccessMiddleware('storeId'), promotionController.getPromotionById);
+router.put('/:storeId/:id', storeAccessMiddleware('storeId'), validateRequest(updatePromotionSchema), promotionController.updatePromotion);
+router.delete('/:storeId/:id', storeAccessMiddleware('storeId'), promotionController.deactivatePromotion);
 
 module.exports = router;
