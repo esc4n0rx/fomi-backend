@@ -16,6 +16,7 @@ class CategoryRepository {
             .order('ordem', { ascending: true });
 
         if (error) {
+            console.error('Erro ao buscar categorias:', error);
             throw new Error(`Erro ao buscar categorias: ${error.message}`);
         }
 
@@ -35,6 +36,7 @@ class CategoryRepository {
             .eq('ativo', true);
 
         if (error) {
+            console.error('Erro ao contar categorias:', error);
             throw new Error(`Erro ao contar categorias: ${error.message}`);
         }
 
@@ -55,6 +57,7 @@ class CategoryRepository {
             .single();
 
         if (error && error.code !== 'PGRST116') {
+            console.error('Erro ao buscar categoria:', error);
             throw new Error(`Erro ao buscar categoria: ${error.message}`);
         }
 
@@ -67,14 +70,30 @@ class CategoryRepository {
      * @returns {Promise<Object>} Categoria criada
      */
     async create(categoryData) {
+        console.log('Dados da categoria a serem inseridos:', categoryData);
+        
         const { data, error } = await supabase
             .from('fomi_categories')
             .insert([categoryData])
             .select('*')
             .single();
 
+        console.log('Resposta do Supabase - data:', data);
+        console.log('Resposta do Supabase - error:', error);
+
         if (error) {
+            console.error('Erro detalhado ao criar categoria:', {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
             throw new Error(`Erro ao criar categoria: ${error.message}`);
+        }
+
+        if (!data) {
+            console.error('Nenhum dado retornado após inserção');
+            throw new Error('Erro ao criar categoria: Nenhum dado retornado');
         }
 
         return data;
@@ -96,6 +115,7 @@ class CategoryRepository {
             .single();
 
         if (error) {
+            console.error('Erro ao atualizar categoria:', error);
             throw new Error(`Erro ao atualizar categoria: ${error.message}`);
         }
 
@@ -114,6 +134,7 @@ class CategoryRepository {
             .eq('id', id);
 
         if (error) {
+            console.error('Erro ao desativar categoria:', error);
             throw new Error(`Erro ao desativar categoria: ${error.message}`);
         }
     }

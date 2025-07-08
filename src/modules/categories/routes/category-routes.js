@@ -9,15 +9,14 @@ const { createCategorySchema, updateCategorySchema } = require('../../../schemas
 const router = express.Router();
 const categoryController = new CategoryController();
 
-// Todas as rotas precisam de autenticação e acesso à loja
+// Middleware de autenticação aplicado globalmente
 router.use(authMiddleware);
-router.use('/:storeId/*', storeAccessMiddleware('storeId'));
 
 // Rotas de categorias
-router.get('/:storeId', categoryController.getStoreCategories);
-router.post('/:storeId', validateRequest(createCategorySchema), categoryController.createCategory);
-router.get('/:storeId/:id', categoryController.getCategoryById);
-router.put('/:storeId/:id', validateRequest(updateCategorySchema), categoryController.updateCategory);
-router.delete('/:storeId/:id', categoryController.deactivateCategory);
+router.get('/:storeId', storeAccessMiddleware('storeId'), categoryController.getStoreCategories);
+router.post('/:storeId', storeAccessMiddleware('storeId'), validateRequest(createCategorySchema), categoryController.createCategory);
+router.get('/:storeId/:id', storeAccessMiddleware('storeId'), categoryController.getCategoryById);
+router.put('/:storeId/:id', storeAccessMiddleware('storeId'), validateRequest(updateCategorySchema), categoryController.updateCategory);
+router.delete('/:storeId/:id', storeAccessMiddleware('storeId'), categoryController.deactivateCategory);
 
 module.exports = router;
