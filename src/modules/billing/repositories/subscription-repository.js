@@ -1,4 +1,4 @@
-// Repositório de assinaturas
+// Repositório de assinaturas (MELHORADO com debug)
 const { supabase } = require('../../../config/database');
 
 class SubscriptionRepository {
@@ -12,7 +12,7 @@ class SubscriptionRepository {
             .from('fomi_subscriptions')
             .select('*')
             .eq('user_id', userId)
-            .in('status', ['active', 'trialing', 'past_due'])
+            .in('status', ['active', 'trialing', 'past_due', 'incomplete']) // Incluído 'incomplete'
             .single();
 
         if (error && error.code !== 'PGRST116') {
@@ -42,22 +42,43 @@ class SubscriptionRepository {
     }
 
     /**
-     * Busca assinatura por customer ID
+     * Busca assinatura por customer ID (MELHORADO com debug)
      * @param {string} stripeCustomerId - ID do customer no Stripe
      * @returns {Promise<Object|null>} Assinatura ou null
      */
     async findByCustomerId(stripeCustomerId) {
+        console.log(`🔍 Buscando assinatura para customer_id: ${stripeCustomerId}`);
+        
         const { data, error } = await supabase
             .from('fomi_subscriptions')
             .select('*')
             .eq('stripe_customer_id', stripeCustomerId)
-            .single();
+            .order('created_at', { ascending: false }) // Pega a mais recente
+            .limit(1);
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
+            console.error(`❌ Erro ao buscar assinatura por customer_id: ${error.message}`);
             throw new Error(`Erro ao buscar assinatura: ${error.message}`);
         }
 
-        return data;
+        const subscription = data && data.length > 0 ? data[0] : null;
+        
+        if (subscription) {
+            console.log(`✅ Assinatura encontrada: ${subscription.id} para customer ${stripeCustomerId}`);
+        } else {
+            console.log(`❌ Nenhuma assinatura encontrada para customer ${stripeCustomerId}`);
+            
+            // Debug: listar todas as assinaturas para análise
+            const { data: allSubs } = await supabase
+                .from('fomi_subscriptions')
+                .select('id, user_id, stripe_customer_id, stripe_subscription_id, status')
+                .order('created_at', { ascending: false })
+                .limit(10);
+            
+            console.log('📊 Últimas assinaturas no banco:', allSubs);
+        }
+
+        return subscription;
     }
 
     /**
@@ -66,6 +87,8 @@ class SubscriptionRepository {
      * @returns {Promise<Object>} Assinatura criada
      */
     async create(subscriptionData) {
+        console.log(`🆕 Criando assinatura:`, subscriptionData);
+        
         const { data, error } = await supabase
             .from('fomi_subscriptions')
             .insert([subscriptionData])
@@ -73,9 +96,11 @@ class SubscriptionRepository {
             .single();
 
         if (error) {
+            console.error(`❌ Erro ao criar assinatura: ${error.message}`);
             throw new Error(`Erro ao criar assinatura: ${error.message}`);
         }
 
+        console.log(`✅ Assinatura criada com sucesso: ${data.id}`);
         return data;
     }
 
@@ -107,6 +132,8 @@ class SubscriptionRepository {
      * @returns {Promise<Object>} Assinatura atualizada
      */
     async updateByStripeId(stripeSubscriptionId, subscriptionData) {
+        console.log(`🔄 Atualizando assinatura ${stripeSubscriptionId}:`, subscriptionData);
+        
         const { data, error } = await supabase
             .from('fomi_subscriptions')
             .update(subscriptionData)
@@ -115,9 +142,11 @@ class SubscriptionRepository {
             .single();
 
         if (error) {
+            console.error(`❌ Erro ao atualizar assinatura: ${error.message}`);
             throw new Error(`Erro ao atualizar assinatura: ${error.message}`);
         }
 
+        console.log(`✅ Assinatura atualizada com sucesso: ${data.id}`);
         return data;
     }
 }

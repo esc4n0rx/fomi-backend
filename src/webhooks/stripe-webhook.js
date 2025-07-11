@@ -18,6 +18,8 @@ const userRepository = new UserRepository();
 const mapStripePlanToOurPlan = (subscription) => {
     const priceId = subscription.items.data[0]?.price?.id;
     
+    console.log(`🔍 Mapeando plano - Price ID: ${priceId}`);
+    
     if (priceId === process.env.STRIPE_PRICE_FOMI_DUPLO) {
         return 'fomi_duplo';
     }
@@ -29,14 +31,18 @@ const mapStripePlanToOurPlan = (subscription) => {
 };
 
 /**
- * Processa eventos de assinatura
+ * Processa eventos de assinatura (CORRIGIDO)
  */
 const handleSubscriptionEvent = async (event, subscription) => {
     const customerId = subscription.customer;
     
-    const existingSubscription = await subscriptionRepository.findByCustomerId(customerId);
+    console.log(`📝 Processando evento de assinatura: ${event.type} para customer: ${customerId}`);
+    
+    let existingSubscription = await subscriptionRepository.findByCustomerId(customerId);
+    
     if (!existingSubscription) {
-        console.error('Usuário não encontrado para customer:', customerId);
+        console.error(`❌ Assinatura não encontrada para customer: ${customerId}`);
+        // Não retorna erro, apenas loga e continua
         return;
     }
 
@@ -57,30 +63,50 @@ const handleSubscriptionEvent = async (event, subscription) => {
 
     switch (event.type) {
         case 'customer.subscription.created':
+            // Atualiza a assinatura existente com os dados do Stripe
+            await subscriptionRepository.update(existingSubscription.id, subscriptionData);
+            console.log(`✅ Assinatura atualizada após criação: ${subscription.id}`);
+            break;
+            
         case 'customer.subscription.updated':
-            await subscriptionRepository.updateByStripeId(subscription.id, subscriptionData);
-            console.log(`Assinatura ${event.type}:`, subscription.id);
+            // Busca novamente para pegar a mais recente (pode ter sido criada após o primeiro check)
+            existingSubscription = await subscriptionRepository.findByStripeId(subscription.id) ||
+                                   await subscriptionRepository.findByCustomerId(customerId);
+            
+            if (existingSubscription) {
+                await subscriptionRepository.update(existingSubscription.id, subscriptionData);
+                console.log(`✅ Assinatura atualizada: ${subscription.id}`);
+            }
             break;
             
         case 'customer.subscription.deleted':
-            await subscriptionRepository.updateByStripeId(subscription.id, {
-                status: 'canceled',
-                canceled_at: new Date(),
-                ended_at: new Date()
-            });
-            console.log('Assinatura cancelada:', subscription.id);
+            existingSubscription = await subscriptionRepository.findByStripeId(subscription.id) ||
+                                   await subscriptionRepository.findByCustomerId(customerId);
+            
+            if (existingSubscription) {
+                await subscriptionRepository.update(existingSubscription.id, {
+                    status: 'canceled',
+                    canceled_at: new Date(),
+                    ended_at: new Date()
+                });
+                console.log(`✅ Assinatura cancelada: ${subscription.id}`);
+            }
             break;
     }
 };
 
 /**
- * Processa eventos de fatura
+ * Processa eventos de fatura (MELHORADO)
  */
 const handleInvoiceEvent = async (event, invoice) => {
     const customerId = invoice.customer;
+    
+    console.log(`📄 Processando evento de fatura: ${event.type} para customer: ${customerId}`);
+    
     const subscription = await subscriptionRepository.findByCustomerId(customerId);
     if (!subscription) {
-        console.error('Assinatura não encontrada para customer:', customerId);
+        console.error(`❌ Assinatura não encontrada para customer: ${customerId} no evento de fatura`);
+        // Não retorna erro, apenas loga e continua
         return;
     }
 
@@ -113,7 +139,7 @@ const handleInvoiceEvent = async (event, invoice) => {
             } else {
                 await invoiceRepository.create(invoiceData);
             }
-            console.log(`Fatura ${event.type}:`, invoice.id);
+            console.log(`✅ Fatura ${event.type}: ${invoice.id}`);
             break;
             
         case 'invoice.payment_succeeded':
@@ -121,20 +147,20 @@ const handleInvoiceEvent = async (event, invoice) => {
                 status: 'paid',
                 paid_at: new Date()
             });
-            console.log('Pagamento de fatura bem-sucedido:', invoice.id);
+            console.log(`✅ Pagamento de fatura bem-sucedido: ${invoice.id}`);
             break;
             
         case 'invoice.payment_failed':
             await invoiceRepository.updateByStripeId(invoice.id, {
                 status: 'open'
             });
-            console.log('Pagamento de fatura falhou:', invoice.id);
+            console.log(`❌ Pagamento de fatura falhou: ${invoice.id}`);
             break;
     }
 };
 
 /**
- * Endpoint do webhook
+ * Endpoint do webhook (MELHORADO com logs)
  */
 router.post('/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
@@ -142,8 +168,9 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
 
     try {
         event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_WEBHOOK_SECRET);
+        console.log(`🎯 Webhook recebido: ${event.type} - ID: ${event.id}`);
     } catch (err) {
-        console.error('Erro na verificação do webhook:', err.message);
+        console.error('❌ Erro na verificação do webhook:', err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
@@ -158,9 +185,10 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
             await handleInvoiceEvent(event, event.data.object);
         }
 
+        console.log(`✅ Webhook processado com sucesso: ${event.type}`);
         res.json({ received: true });
     } catch (error) {
-        console.error('Erro ao processar webhook:', error);
+        console.error(`❌ Erro ao processar webhook ${event.type}:`, error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });

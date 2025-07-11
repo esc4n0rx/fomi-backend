@@ -1,4 +1,4 @@
-// Serviço principal de billing
+// Serviço principal de billing (CORRIGIDO)
 const StripeService = require('./stripe-service');
 const SubscriptionRepository = require('../repositories/subscription-repository');
 const InvoiceRepository = require('../repositories/invoice-repository');
@@ -41,13 +41,17 @@ class BillingService {
         // Cria ou busca customer no Stripe
         const customer = await this.stripeService.createOrGetCustomer(user);
 
-        // Cria assinatura inicial no nosso banco (será atualizada pelo webhook)
-        await this.subscriptionRepository.create({
+        console.log(`🔄 Customer criado/encontrado: ${customer.id} para usuário ${userId}`);
+
+        // Cria assinatura inicial no nosso banco ANTES da sessão de checkout
+        const initialSubscription = await this.subscriptionRepository.create({
             user_id: userId,
             stripe_customer_id: customer.id,
             plano: 'fomi_simples', // Será atualizado pelo webhook
             status: 'incomplete'
         });
+
+        console.log(`✅ Assinatura inicial criada: ${initialSubscription.id} com customer_id: ${customer.id}`);
 
         // Cria sessão de checkout
         const session = await this.stripeService.createCheckoutSession(
