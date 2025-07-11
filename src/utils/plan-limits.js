@@ -1,10 +1,10 @@
-// Definição de limites por plano
+
 const PLAN_LIMITS = {
     fomi_simples: {
         stores: 1,
         products_per_store: 10,
-        categories_per_store: 10, // Aumentado de 5 para 10
-        promotions_active: 3, // Aumentado de 1 para 3
+        categories_per_store: 10,
+        promotions_active: 3,
         features: {
             custom_domain: false,
             advanced_reports: false,
@@ -30,9 +30,9 @@ const PLAN_LIMITS = {
     },
     fomi_supremo: {
         stores: 5,
-        products_per_store: -1, // Ilimitado
-        categories_per_store: -1, // Ilimitado
-        promotions_active: -1, // Ilimitado
+        products_per_store: -1, 
+        categories_per_store: -1, 
+        promotions_active: -1,
         features: {
             custom_domain: true,
             advanced_reports: true,

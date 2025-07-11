@@ -1,4 +1,3 @@
-// Webhook do Stripe
 const express = require('express');
 const { stripe, STRIPE_WEBHOOK_SECRET } = require('../config/stripe');
 const SubscriptionRepository = require('../modules/billing/repositories/subscription-repository');
@@ -35,7 +34,6 @@ const mapStripePlanToOurPlan = (subscription) => {
 const handleSubscriptionEvent = async (event, subscription) => {
     const customerId = subscription.customer;
     
-    // Busca usuário pelo customer_id
     const existingSubscription = await subscriptionRepository.findByCustomerId(customerId);
     if (!existingSubscription) {
         console.error('Usuário não encontrado para customer:', customerId);
@@ -80,8 +78,6 @@ const handleSubscriptionEvent = async (event, subscription) => {
  */
 const handleInvoiceEvent = async (event, invoice) => {
     const customerId = invoice.customer;
-    
-    // Busca assinatura pelo customer_id
     const subscription = await subscriptionRepository.findByCustomerId(customerId);
     if (!subscription) {
         console.error('Assinatura não encontrada para customer:', customerId);
@@ -94,7 +90,7 @@ const handleInvoiceEvent = async (event, invoice) => {
         stripe_invoice_id: invoice.id,
         numero_fatura: invoice.number,
         status: invoice.status,
-        total: invoice.total / 100, // Stripe usa centavos
+        total: invoice.total / 100,
         subtotal: invoice.subtotal / 100,
         tax: invoice.tax || 0,
         currency: invoice.currency.toUpperCase(),

@@ -1,4 +1,4 @@
-// Serviço do Stripe
+// Serviço do Stripe (MELHORADO com tratamento de erros)
 const { stripe, STRIPE_PRICE_IDS } = require('../../../config/stripe');
 
 class StripeService {
@@ -8,25 +8,30 @@ class StripeService {
      * @returns {Promise<Object>} Customer do Stripe
      */
     async createOrGetCustomer(userData) {
-        // Busca customer existente por email
-        const existingCustomers = await stripe.customers.list({
-            email: userData.email,
-            limit: 1
-        });
+        try {
+            // Busca customer existente por email
+            const existingCustomers = await stripe.customers.list({
+                email: userData.email,
+                limit: 1
+            });
 
-        if (existingCustomers.data.length > 0) {
-            return existingCustomers.data[0];
-        }
-
-        // Cria novo customer
-        return await stripe.customers.create({
-            email: userData.email,
-            name: userData.nome,
-            metadata: {
-                user_id: userData.id,
-                cpf: userData.cpf
+            if (existingCustomers.data.length > 0) {
+                return existingCustomers.data[0];
             }
-        });
+
+            // Cria novo customer
+            return await stripe.customers.create({
+                email: userData.email,
+                name: userData.nome,
+                metadata: {
+                    user_id: userData.id,
+                    cpf: userData.cpf
+                }
+            });
+        } catch (error) {
+            console.error('Erro ao criar/buscar customer no Stripe:', error);
+            throw new Error(`Erro ao processar customer: ${error.message}`);
+        }
     }
 
     /**
@@ -41,26 +46,47 @@ class StripeService {
         const priceId = STRIPE_PRICE_IDS[planName];
         
         if (!priceId) {
-            throw new Error(`Plano ${planName} não encontrado`);
+            throw new Error(`Plano ${planName} não encontrado ou price_id não configurado`);
         }
 
-        return await stripe.checkout.sessions.create({
-            customer: customerId,
-            payment_method_types: ['card'],
-            mode: 'subscription',
-            line_items: [{
-                price: priceId,
-                quantity: 1
-            }],
-            success_url: successUrl,
-            cancel_url: cancelUrl,
-            allow_promotion_codes: true,
-            billing_address_collection: 'required',
-            locale: 'pt-BR',
-            metadata: {
-                plan: planName
+        try {
+            console.log(`🔄 Criando checkout session para plano ${planName} com price_id: ${priceId}`);
+            
+            const session = await stripe.checkout.sessions.create({
+                customer: customerId,
+                payment_method_types: ['card'],
+                mode: 'subscription',
+                line_items: [{
+                    price: priceId,
+                    quantity: 1
+                }],
+                success_url: successUrl,
+                cancel_url: cancelUrl,
+                allow_promotion_codes: true,
+                billing_address_collection: 'required',
+                locale: 'pt-BR',
+                metadata: {
+                    plan: planName
+                }
+            });
+
+            console.log(`✅ Checkout session criada: ${session.id}`);
+            return session;
+        } catch (error) {
+            console.error('Erro ao criar checkout session:', {
+                planName,
+                priceId,
+                customerId,
+                error: error.message
+            });
+            
+            // Mensagem de erro mais específica
+            if (error.code === 'resource_missing') {
+                throw new Error(`Price ID inválido para o plano ${planName}. Verifique a configuração no dashboard do Stripe.`);
             }
-        });
+            
+            throw new Error(`Erro ao criar sessão de checkout: ${error.message}`);
+        }
     }
 
     /**
@@ -70,10 +96,15 @@ class StripeService {
      * @returns {Promise<Object>} Sessão do portal
      */
     async createBillingPortal(customerId, returnUrl) {
-        return await stripe.billingPortal.sessions.create({
-            customer: customerId,
-            return_url: returnUrl
-        });
+        try {
+            return await stripe.billingPortal.sessions.create({
+                customer: customerId,
+                return_url: returnUrl
+            });
+        } catch (error) {
+            console.error('Erro ao criar portal de billing:', error);
+            throw new Error(`Erro ao criar portal: ${error.message}`);
+        }
     }
 
     /**
@@ -82,7 +113,12 @@ class StripeService {
      * @returns {Promise<Object>} Assinatura do Stripe
      */
     async getSubscription(subscriptionId) {
-        return await stripe.subscriptions.retrieve(subscriptionId);
+        try {
+            return await stripe.subscriptions.retrieve(subscriptionId);
+        } catch (error) {
+            console.error('Erro ao buscar assinatura:', error);
+            throw new Error(`Erro ao buscar assinatura: ${error.message}`);
+        }
     }
 
     /**
@@ -91,7 +127,12 @@ class StripeService {
      * @returns {Promise<Object>} Assinatura cancelada
      */
     async cancelSubscription(subscriptionId) {
-        return await stripe.subscriptions.cancel(subscriptionId);
+        try {
+            return await stripe.subscriptions.cancel(subscriptionId);
+        } catch (error) {
+            console.error('Erro ao cancelar assinatura:', error);
+            throw new Error(`Erro ao cancelar assinatura: ${error.message}`);
+        }
     }
 
     /**
@@ -101,12 +142,35 @@ class StripeService {
      * @returns {Promise<Array>} Lista de faturas
      */
     async getCustomerInvoices(customerId, limit = 10) {
-        const invoices = await stripe.invoices.list({
-            customer: customerId,
-            limit: limit
-        });
-        
-        return invoices.data;
+        try {
+            const invoices = await stripe.invoices.list({
+                customer: customerId,
+                limit: limit
+            });
+            
+            return invoices.data;
+        } catch (error) {
+            console.error('Erro ao buscar faturas:', error);
+            throw new Error(`Erro ao buscar faturas: ${error.message}`);
+        }
+    }
+
+    /**
+     * Lista todos os preços disponíveis (útil para debug)
+     * @returns {Promise<Array>} Lista de preços
+     */
+    async listAvailablePrices() {
+        try {
+            const prices = await stripe.prices.list({
+                active: true,
+                limit: 100
+            });
+            
+            return prices.data;
+        } catch (error) {
+            console.error('Erro ao listar preços:', error);
+            throw new Error(`Erro ao listar preços: ${error.message}`);
+        }
     }
 }
 
