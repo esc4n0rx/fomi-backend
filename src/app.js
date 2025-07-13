@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const errorHandler = require('./middleware/error-handler');
 
 const authRoutes = require('./modules/auth/routes/auth-routes');
+const webhookLogger = require('./middleware/webhook-logger');
 const storeRoutes = require('./modules/stores/routes/store-routes');
 const categoryRoutes = require('./modules/categories/routes/category-routes');
 const productRoutes = require('./modules/products/routes/product-routes');
@@ -79,6 +80,7 @@ app.use('/api/v1/coupons', limiter);
 app.use('/api/v1/billing', limiter);
 app.use('/api/v1/orders', limiter);
 app.use('/api/v1/customers', limiter);
+app.use('/webhooks', webhookLogger, stripeWebhook);
 
 // Webhook do Stripe (sem rate limiting)
 app.use('/webhooks', stripeWebhook);
