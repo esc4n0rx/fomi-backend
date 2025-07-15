@@ -1,4 +1,4 @@
-// Schemas para categorias
+// Schemas para categorias (ATUALIZADO)
 const { z } = require('zod');
 
 // Schema para criar categoria

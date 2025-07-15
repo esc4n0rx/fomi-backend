@@ -56,10 +56,9 @@ const limiter = rateLimit({
     skipFailedRequests: false
 });
 
-// Rate limiting para rotas públicas (mais permissivo)
 const publicLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 200, // limite mais alto para rotas públicas
+    max: 200,
     message: {
         success: false,
         message: 'Muitas tentativas. Tente novamente em 15 minutos.'

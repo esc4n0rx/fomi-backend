@@ -1,4 +1,4 @@
-// Schemas para produtos
+// Schemas para produtos (ATUALIZADO)
 const { z } = require('zod');
 
 // Schema para criar produto
@@ -42,8 +42,12 @@ const createProductSchema = z.object({
     
     disponivel: z.boolean().optional(),
     destaque: z.boolean().optional(),
-    imagem_url: z.string().url('URL da imagem inválida').optional(),
-    ordem: z.number().int().min(0).optional()
+    ordem: z.number().int().min(0).optional(),
+    
+    // Novos campos para múltiplas imagens
+    imagens_extras: z.array(z.string().url('URL inválida'))
+        .max(5, 'Máximo 5 imagens extras')
+        .optional()
 });
 
 // Schema para atualizar produto
@@ -89,8 +93,11 @@ const updateProductSchema = z.object({
     
     disponivel: z.boolean().optional(),
     destaque: z.boolean().optional(),
-    imagem_url: z.string().url('URL da imagem inválida').optional(),
-    ordem: z.number().int().min(0).optional()
+    ordem: z.number().int().min(0).optional(),
+    
+    imagens_extras: z.array(z.string().url('URL inválida'))
+        .max(5, 'Máximo 5 imagens extras')
+        .optional()
 });
 
 module.exports = {
