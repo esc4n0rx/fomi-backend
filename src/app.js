@@ -1,9 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 
 const errorHandler = require('./middleware/error-handler');
+const { ipWhitelistMiddleware } = require('./middleware/ip-whitelist');
+const { rateLimiters } = require('./middleware/rate-limiter');
+
 
 const authRoutes = require('./modules/auth/routes/auth-routes');
 const webhookLogger = require('./middleware/webhook-logger');
@@ -22,12 +24,12 @@ const stripeWebhook = require('./webhooks/stripe-webhook');
 
 const app = express();
 
-// Configurar trust proxy para resolver o erro do rate limiting
 app.set('trust proxy', 1);
 
 app.use(helmet());
 
-// Configurar CORS para aceitar apenas os domínios específicos
+app.use(ipWhitelistMiddleware);
+
 const corsOptions = {
     origin: [
         'http://localhost:3000',
@@ -42,77 +44,39 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Rate limiting para rotas privadas
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 100, // limite por IP
-    message: {
-        success: false,
-        message: 'Muitas tentativas. Tente novamente em 15 minutos.'
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    skipSuccessfulRequests: false,
-    skipFailedRequests: false
-});
-
-const publicLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 200,
-    message: {
-        success: false,
-        message: 'Muitas tentativas. Tente novamente em 15 minutos.'
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    skipSuccessfulRequests: false,
-    skipFailedRequests: false
-});
-
-// Aplicar rate limiting
-app.use('/api/v1/auth', limiter);
-app.use('/api/v1/stores', limiter);
-app.use('/api/v1/categories', limiter);
-app.use('/api/v1/products', limiter);
-app.use('/api/v1/promotions', limiter);
-app.use('/api/v1/coupons', limiter);
-app.use('/api/v1/billing', limiter);
-app.use('/api/v1/orders', limiter);
-app.use('/api/v1/customers', limiter);
 app.use('/webhooks', webhookLogger, stripeWebhook);
-
-// Webhook do Stripe (sem rate limiting)
-app.use('/webhooks', stripeWebhook);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rotas privadas
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/stores', storeRoutes);
-app.use('/api/v1/categories', categoryRoutes);
-app.use('/api/v1/products', productRoutes);
-app.use('/api/v1/promotions', promotionRoutes);
-app.use('/api/v1/coupons', couponRoutes);
-app.use('/api/v1/billing', billingRoutes);
-app.use('/api/v1/orders', orderRoutes);
-app.use('/api/v1/customers', customerRoutes);
 
-// Rotas públicas com rate limiting específico
-app.use('/api/v1/public', publicLimiter, publicStoreRoutes);
-app.use('/api/v1/public/orders', publicLimiter, publicOrderRoutes);
+app.use('/api/v1/auth', rateLimiters.auth, authRoutes);
 
-// Health check
+app.use('/api/v1/stores', rateLimiters.admin, storeRoutes);
+app.use('/api/v1/categories', rateLimiters.admin, categoryRoutes);
+app.use('/api/v1/products', rateLimiters.admin, productRoutes);
+app.use('/api/v1/promotions', rateLimiters.admin, promotionRoutes);
+app.use('/api/v1/coupons', rateLimiters.admin, couponRoutes);
+app.use('/api/v1/billing', rateLimiters.admin, billingRoutes);
+
+
+app.use('/api/v1/orders', rateLimiters.polling, orderRoutes);
+app.use('/api/v1/customers', rateLimiters.polling, customerRoutes);
+
+app.use('/api/v1/public', rateLimiters.public, publicStoreRoutes);
+app.use('/api/v1/public/orders', rateLimiters.public, publicOrderRoutes);
+
 app.get('/health', (req, res) => {
     res.json({
         success: true,
         message: 'Fomi API está rodando',
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: '1.0.0',
+        environment: process.env.NODE_ENV || 'development',
+        rate_limiting: process.env.NODE_ENV !== 'development'
     });
 });
 
-// 404 handler
 app.use('*', (req, res) => {
     res.status(404).json({
         success: false,
